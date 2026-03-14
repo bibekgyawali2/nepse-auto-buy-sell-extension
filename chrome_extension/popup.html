@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEPSE TMS Auto Order</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-icon">⚡</div>
+      <h1>NEPSE Auto Order</h1>
+      <p class="subtitle">Precision order placement at target time</p>
+    </header>
+
+    <!-- Status Bar -->
+    <div id="status-bar" class="status-bar status-idle">
+      <span id="status-icon">⏸️</span>
+      <span id="status-text">Idle — Configure & arm</span>
+    </div>
+
+    <!-- Live Clock -->
+    <div class="clock-section">
+      <div class="clock-label">CURRENT TIME</div>
+      <div id="live-clock" class="clock-display">--:--:--.---</div>
+    </div>
+
+    <!-- Order Form -->
+    <div class="form-section">
+      <div class="form-group">
+        <label for="symbol">Stock Symbol</label>
+        <input type="text" id="symbol" placeholder="e.g. NABIL" spellcheck="false" autocomplete="off" />
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="quantity">Quantity</label>
+          <input type="number" id="quantity" placeholder="10" min="1" />
+        </div>
+        <div class="form-group">
+          <label for="price">Price (Rs.)</label>
+          <input type="number" id="price" placeholder="1500" min="1" step="1" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Order Type</label>
+        <div class="toggle-group">
+          <button id="btn-buy" class="toggle-btn active" data-type="buy">BUY</button>
+          <button id="btn-sell" class="toggle-btn" data-type="sell">SELL</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Target Time</label>
+        <div class="time-inputs">
+          <input type="number" id="target-hour" value="11" min="0" max="23" />
+          <span class="time-sep">:</span>
+          <input type="number" id="target-min" value="0" min="0" max="59" />
+          <span class="time-sep">:</span>
+          <input type="number" id="target-sec" value="0" min="0" max="59" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Selector Config (Collapsible) -->
+    <details class="selectors-section">
+      <summary>⚙️ TMS Field Selectors <span class="hint">(click to customize)</span></summary>
+      <div class="selector-fields">
+        <div class="form-group">
+          <label for="sel-symbol">Symbol Field Selector</label>
+          <input type="text" id="sel-symbol" placeholder="input[formcontrolname='symbol']" spellcheck="false" />
+        </div>
+        <div class="form-group">
+          <label for="sel-quantity">Quantity Field Selector</label>
+          <input type="text" id="sel-quantity" placeholder="input[formcontrolname='quantity']" spellcheck="false" />
+        </div>
+        <div class="form-group">
+          <label for="sel-price">Price Field Selector</label>
+          <input type="text" id="sel-price" placeholder="input[formcontrolname='price']" spellcheck="false" />
+        </div>
+        <div class="form-group">
+          <label for="sel-submit">Submit Button Selector</label>
+          <input type="text" id="sel-submit" placeholder="button[type='submit']" spellcheck="false" />
+        </div>
+      </div>
+    </details>
+
+    <!-- Action Buttons -->
+    <div class="action-section">
+      <button id="btn-arm" class="btn btn-arm">
+        <span class="btn-icon">🚀</span>
+        ARM ORDER
+      </button>
+      <button id="btn-instant" class="btn btn-instant">
+        <span class="btn-icon">⚡</span>
+        INSTANT FIRE
+      </button>
+      <button id="btn-disarm" class="btn btn-disarm hidden">
+        <span class="btn-icon">🛑</span>
+        DISARM
+      </button>
+    </div>
+
+    <!-- Countdown -->
+    <div id="countdown-section" class="countdown-section hidden">
+      <div class="countdown-label">ORDER FIRES IN</div>
+      <div id="countdown" class="countdown-display">--:--:--.---</div>
+      <div class="pulse-ring"></div>
+    </div>
+
+    <!-- Result -->
+    <div id="result-section" class="result-section hidden">
+      <div id="result-icon" class="result-icon">✅</div>
+      <div id="result-text" class="result-text"></div>
+      <div id="result-detail" class="result-detail"></div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>NEPSE TMS Auto Order v1.0</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
