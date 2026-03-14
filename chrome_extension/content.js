@@ -37,15 +37,18 @@
       // Step 0: Ensure Correct Session and Buy/Sell Mode
       setupCorrectState(config);
 
-      // Step 0.5: Fill Qty and Price FIRST
-      fillQuantityAndPrice(config);
-
-      // Step 0.6: Pre-fill the Symbol and ensure the dropdown is clicked
+      // Step 0.5: Pre-fill the Symbol and ensure the dropdown is clicked
       // Doing this gives Angular time to fetch the lot size / tick bounds from the API.
       const boundsLoaded = await preFillSymbolAndFetchBounds(config);
       if (!boundsLoaded) {
         console.warn("[NEPSE Bot] Warning: Stock bounds (LTP) might not have loaded.");
       }
+
+      // Step 0.6: Fill Qty and Price AFTER the symbol bounds have loaded!
+      // (Angular clears these fields when a new symbol is selected)
+      await new Promise(r => setTimeout(r, 15)); // Let Angular finish its internal reset (fast 15ms yield)
+      fillQuantityAndPrice(config);
+      await new Promise(r => setTimeout(r, 15)); // Let Angular update its validation state for Qty/Price
 
       // Step 1: Precise wait until target time (bypass if instant)
       if (!config.instant) {
@@ -54,17 +57,31 @@
         console.log("[NEPSE Bot] Instant mode — bypassing wait.");
       }
 
-      // Step 2: Fill Qty and Price again right before submit just in case Angular wiped them
-      fillQuantityAndPrice(config);
-
+      // Step 2: Click submit
       const tsBefore = performance.now();
       
-      const submitEl = document.querySelector(config.selSubmit || "button[type='submit']");
+      // Find the actual Submit button. We avoid looking just for 'Buy' text, as there's a toggle switch labeled buy.
+      // Usually the actual submit button has class "btn-primary" or is the only submit button inside the form.
+      let submitEl = document.querySelector(config.selSubmit);
+      if (!submitEl) {
+        // Fallbacks: find the heavy action buttons at the bottom of the form
+        const buttons = Array.from(document.querySelectorAll("button"));
+        submitEl = buttons.find(b => 
+          (b.type === 'submit' && b.textContent.trim().toUpperCase() === config.orderType.toUpperCase()) ||
+          (b.className.includes('btn-primary') && b.textContent.trim().toUpperCase() === config.orderType.toUpperCase())
+        );
+
+        if (!submitEl) {
+          // Last resort fallback
+          submitEl = document.querySelector("button[type='submit']");
+        }
+      }
+
       if (!submitEl) {
         throw new Error(`Submit button not found.`);
       }
       submitEl.click();
-      console.log("[NEPSE Bot] Submit button clicked!");
+      console.log(`[NEPSE Bot] ${config.orderType.toUpperCase()} Submit button clicked!`);
       
       const tsAfter = performance.now();
 
@@ -152,13 +169,13 @@
 
     // 2. Wait for and click the dropdown suggestion (Angular ngx-bootstrap typeahead)
     let dropdownItem = null;
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 150; i++) {
       // Find the specific button in the typeahead container that matches our symbol
       const items = Array.from(document.querySelectorAll("typeahead-container button.dropdown-item"));
       dropdownItem = items.find(btn => btn.textContent.toUpperCase().includes(config.symbol.toUpperCase()));
       
       if (dropdownItem) break;
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise(r => setTimeout(r, 10)); // Ultra-fast 10ms polling
     }
     
     if (dropdownItem) {
@@ -177,13 +194,13 @@
 
     // 3. Wait for stock bounds details to populate (Check if 'LTP' has a number next to it)
     let ltpFound = false;
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 150; i++) {
       const match = document.body.innerText.match(/LTP\s*([\d\.,]+)/);
       if (match && match[1] && parseFloat(match[1]) > 0) {
         ltpFound = true;
         break;
       }
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise(r => setTimeout(r, 10)); // Ultra-fast 10ms polling
     }
 
     if (ltpFound) console.log("[NEPSE Bot] Stock bounds loaded properly!");
