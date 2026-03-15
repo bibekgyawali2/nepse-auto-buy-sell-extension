@@ -50,6 +50,9 @@
       fillQuantityAndPrice(config);
       await new Promise(r => setTimeout(r, 15)); // Let Angular update its validation state for Qty/Price
 
+      // Step 0.7: Small delay to let Angular process the field values
+      await new Promise(r => setTimeout(r, 100));
+
       // Step 1: Precise wait until target time (bypass if instant)
       if (!config.instant) {
         preciseWait(config.targetHour, config.targetMin, config.targetSec);
@@ -57,34 +60,12 @@
         console.log("[NEPSE Bot] Instant mode — bypassing wait.");
       }
 
-      // Step 2: Click submit
+      // Step 2: Click submit via main world injection
       const tsBefore = performance.now();
       
-      // Find the actual Submit button. We avoid looking just for 'Buy' text, as there's a toggle switch labeled buy.
-      // Usually the actual submit button has class "btn-primary" or is the only submit button inside the form.
-      let submitEl = document.querySelector(config.selSubmit);
-      if (!submitEl) {
-        // Fallbacks: find the heavy action buttons at the bottom of the form
-        const buttons = Array.from(document.querySelectorAll("button"));
-        submitEl = buttons.find(b => 
-          (b.type === 'submit' && b.textContent.trim().toUpperCase() === config.orderType.toUpperCase()) ||
-          (b.className.includes('btn-primary') && b.textContent.trim().toUpperCase() === config.orderType.toUpperCase())
-        );
+      clickSubmitViaMainWorld(config);
 
-        if (!submitEl) {
-          // Last resort fallback
-          submitEl = document.querySelector("button[type='submit']");
-        }
-      }
-
-      if (!submitEl) {
-        throw new Error(`Submit button not found.`);
-      }
-      submitEl.click();
-      console.log(`[NEPSE Bot] ${config.orderType.toUpperCase()} Submit button clicked!`);
-      
       const tsAfter = performance.now();
-
       const timeTaken = (tsAfter - tsBefore).toFixed(1);
       const now = new Date();
 
@@ -113,6 +94,87 @@
         },
       });
     }
+  }
+
+  // ─── FILL FIELDS ────────────────────────────────────────────
+
+  function fillQuantityAndPrice(config) {
+    const qtySel = config.selQuantity || "input[formcontrolname='quantity']";
+    const priceSel = config.selPrice || "input[formcontrolname='price']";
+
+    fastFill(qtySel, String(config.quantity));
+    fastFill(priceSel, String(config.price));
+  }
+
+  // ─── SUBMIT ORDER VIA ENTER KEY ─────────────────────────────
+
+  /**
+   * Submit the form by focusing a form field (price) and pressing Enter.
+   * This is the most reliable way to submit on NEPSE TMS because:
+   *  - Angular keeps the BUY button disabled ("-") even when fields are filled programmatically
+   *  - But pressing Enter in a form field naturally triggers form submission
+   *  - This bypasses Angular's button state management entirely
+   */
+  function clickSubmitViaMainWorld(config) {
+    const priceSel = config.selPrice || "input[formcontrolname='price']";
+    
+    const injectedCode = `
+      (function() {
+        // Focus the price field and press Enter to submit the form
+        const priceEl = document.querySelector("${priceSel}");
+        if (priceEl) {
+          priceEl.focus();
+          
+          // Dispatch Enter key events — this triggers Angular's form submission
+          const enterDown = new KeyboardEvent("keydown", {
+            key: "Enter", code: "Enter", keyCode: 13, which: 13,
+            bubbles: true, cancelable: true
+          });
+          const enterPress = new KeyboardEvent("keypress", {
+            key: "Enter", code: "Enter", keyCode: 13, which: 13,
+            bubbles: true, cancelable: true
+          });
+          const enterUp = new KeyboardEvent("keyup", {
+            key: "Enter", code: "Enter", keyCode: 13, which: 13,
+            bubbles: true, cancelable: true
+          });
+          
+          priceEl.dispatchEvent(enterDown);
+          priceEl.dispatchEvent(enterPress);
+          priceEl.dispatchEvent(enterUp);
+          
+          console.log("[NEPSE Bot] ✅ Enter key dispatched on price field to submit form.");
+        } else {
+          // Fallback: try quantity field
+          const qtyEl = document.querySelector("input[formcontrolname='quantity']");
+          if (qtyEl) {
+            qtyEl.focus();
+            qtyEl.dispatchEvent(new KeyboardEvent("keydown", {
+              key: "Enter", code: "Enter", keyCode: 13, which: 13,
+              bubbles: true, cancelable: true
+            }));
+            qtyEl.dispatchEvent(new KeyboardEvent("keypress", {
+              key: "Enter", code: "Enter", keyCode: 13, which: 13,
+              bubbles: true, cancelable: true
+            }));
+            qtyEl.dispatchEvent(new KeyboardEvent("keyup", {
+              key: "Enter", code: "Enter", keyCode: 13, which: 13,
+              bubbles: true, cancelable: true
+            }));
+            console.log("[NEPSE Bot] ✅ Enter key dispatched on quantity field to submit form.");
+          } else {
+            console.error("[NEPSE Bot] ❌ No form field found to dispatch Enter on!");
+          }
+        }
+      })();
+    `;
+
+    const scriptEl = document.createElement("script");
+    scriptEl.textContent = injectedCode;
+    document.body.appendChild(scriptEl);
+    scriptEl.remove();
+
+    console.log(`[NEPSE Bot] ${config.orderType.toUpperCase()} Submit via Enter key injected into main world.`);
   }
 
   // ─── PRECISE WAIT ──────────────────────────────────────────
@@ -205,14 +267,6 @@
 
     if (ltpFound) console.log("[NEPSE Bot] Stock bounds loaded properly!");
     return ltpFound;
-  }
-
-  function fillQuantityAndPrice(config) {
-    const qtySel = config.selQuantity || "input[formcontrolname='quantity']";
-    const priceSel = config.selPrice || "input[formcontrolname='price']";
-
-    fastFill(qtySel, String(config.quantity));
-    fastFill(priceSel, String(config.price));
   }
 
   /**
