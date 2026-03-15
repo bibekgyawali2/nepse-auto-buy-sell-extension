@@ -16,6 +16,8 @@ const DOM = {
   price: $id("price"),
   btnBuy: $id("btn-buy"),
   btnSell: $id("btn-sell"),
+  btnContinuous: $id("btn-continuous"),
+  btnPreopen: $id("btn-preopen"),
   targetHour: $id("target-hour"),
   targetMin: $id("target-min"),
   targetSec: $id("target-sec"),
@@ -37,6 +39,7 @@ const DOM = {
 };
 
 let orderType = "buy";
+let sessionType = "continuous";
 let clockInterval = null;
 let countdownInterval = null;
 
@@ -74,6 +77,19 @@ DOM.btnSell.addEventListener("click", () => {
   DOM.btnBuy.classList.remove("active");
 });
 
+// ─── SESSION TYPE TOGGLE ─────────────────────────────────────
+DOM.btnContinuous.addEventListener("click", () => {
+  sessionType = "continuous";
+  DOM.btnContinuous.classList.add("active");
+  DOM.btnPreopen.classList.remove("active");
+});
+
+DOM.btnPreopen.addEventListener("click", () => {
+  sessionType = "preopen";
+  DOM.btnPreopen.classList.add("active");
+  DOM.btnContinuous.classList.remove("active");
+});
+
 // ─── LOAD SAVED CONFIG ───────────────────────────────────────
 function loadConfig() {
   chrome.storage.local.get(
@@ -97,6 +113,14 @@ function loadConfig() {
       if (data.targetHour !== undefined) DOM.targetHour.value = data.targetHour;
       if (data.targetMin !== undefined) DOM.targetMin.value = data.targetMin;
       if (data.targetSec !== undefined) DOM.targetSec.value = data.targetSec;
+      
+      if (data.sessionType) {
+        sessionType = data.sessionType;
+        if (sessionType === "preopen") {
+          DOM.btnPreopen.classList.add("active");
+          DOM.btnContinuous.classList.remove("active");
+        }
+      }
 
       // Selectors with defaults
       DOM.selSymbol.value = data.selSymbol || "input[formcontrolname='symbol']";
@@ -124,6 +148,7 @@ function saveConfig() {
     quantity: parseInt(DOM.quantity.value) || 0,
     price: parseFloat(DOM.price.value) || 0,
     orderType: orderType,
+    sessionType: sessionType,
     targetHour: parseInt(DOM.targetHour.value) || 11,
     targetMin: parseInt(DOM.targetMin.value) || 0,
     targetSec: parseInt(DOM.targetSec.value) || 0,

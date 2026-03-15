@@ -279,26 +279,7 @@
     console.log("[NEPSE Bot] Setting up state: Continuous Session, " + config.orderType.toUpperCase() + " Mode");
     
     try {
-      // 1. Ensure CONTINUOUS session is selected
-      // Based on TMS layout, Continuous is the first label
-      const continuousLabel = document.querySelector("label.order__options--lab:nth-of-type(1)");
-      if (continuousLabel) {
-        const input = continuousLabel.querySelector("input");
-        if (input && !input.checked) {
-          console.log("[NEPSE Bot] Switching to CONTINUOUS session...");
-          continuousLabel.click();
-        }
-      } else {
-        // Fallback: look for label containing text 'CONTINUOUS'
-        const labels = Array.from(document.querySelectorAll("label"));
-        const fallbackLabel = labels.find(l => l.textContent.trim().toUpperCase().includes("CONTINUOUS"));
-        if (fallbackLabel) {
-          const input = fallbackLabel.querySelector("input");
-          if (input && !input.checked) fallbackLabel.click();
-        }
-      }
-
-      // 2. Ensure the correct BUY/SELL mode is active
+      // 1. Ensure the correct BUY/SELL mode is active FIRST
       const isBuyTarget = config.orderType.toLowerCase() === "buy";
       const buyLabel = document.querySelector("label.order__options--buy");
       const sellLabel = document.querySelector("label.order__options--sell");
@@ -335,6 +316,29 @@
         else {
            const fallbackSell = Array.from(document.querySelectorAll("label")).find(l => l.textContent.trim().toUpperCase() === "SELL");
            if (fallbackSell) fallbackSell.click();
+        }
+      }
+
+      // 2. Ensure Correct session is selected AFTER setting Buy/Sell mode
+      const targetSession = config.sessionType || "continuous";
+      const isContinuous = targetSession === "continuous";
+      
+      const sessionLabels = Array.from(document.querySelectorAll("label.order__options--lab, label"));
+      
+      const continuousLabel = sessionLabels.find(l => l.textContent.trim().toUpperCase().includes("CONTINUOUS"));
+      const preopenLabel = sessionLabels.find(l => l.textContent.trim().toUpperCase().includes("PRE OPEN") || l.textContent.trim().toUpperCase().includes("PRE-OPEN") || l.textContent.trim().toUpperCase().includes("PREOPEN"));
+      
+      if (isContinuous && continuousLabel) {
+        const input = continuousLabel.querySelector("input");
+        if (input && !input.checked) {
+          console.log("[NEPSE Bot] Switching to CONTINUOUS session...");
+          continuousLabel.click();
+        }
+      } else if (!isContinuous && preopenLabel) {
+        const input = preopenLabel.querySelector("input");
+        if (input && !input.checked) {
+          console.log("[NEPSE Bot] Switching to PRE-OPEN session...");
+          preopenLabel.click();
         }
       }
     } catch (e) {

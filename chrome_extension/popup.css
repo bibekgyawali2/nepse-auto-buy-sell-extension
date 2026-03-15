@@ -261,6 +261,20 @@ body {
   box-shadow: 0 0 12px var(--red-glow);
 }
 
+.toggle-btn.active[data-type="continuous"] {
+  background: linear-gradient(135deg, rgba(108, 99, 255, 0.15), rgba(108, 99, 255, 0.05));
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.toggle-btn.active[data-type="preopen"] {
+  background: linear-gradient(135deg, rgba(255, 171, 64, 0.15), rgba(255, 171, 64, 0.05));
+  border-color: var(--orange);
+  color: var(--orange);
+  box-shadow: 0 0 12px var(--orange-glow);
+}
+
 /* ─── TIME INPUTS ───────────────────────────────────────── */
 .time-inputs {
   display: flex;
@@ -533,4 +547,5 @@ input[type="number"]::-webkit-outer-spin-button {
 
 input[type="number"] {
   -moz-appearance: textfield;
+  appearance: textfield;
 }
