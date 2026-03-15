@@ -63,7 +63,7 @@
       // Step 2: Click submit via main world injection
       const tsBefore = performance.now();
       
-      clickSubmitViaMainWorld(config);
+      clickSubmitDirect(config);
 
       const tsAfter = performance.now();
       const timeTaken = (tsAfter - tsBefore).toFixed(1);
@@ -115,66 +115,56 @@
    *  - But pressing Enter in a form field naturally triggers form submission
    *  - This bypasses Angular's button state management entirely
    */
-  function clickSubmitViaMainWorld(config) {
+  function clickSubmitDirect(config) {
     const priceSel = config.selPrice || "input[formcontrolname='price']";
+    let maxRetries = 10;
     
-    const injectedCode = `
-      (function() {
-        // Focus the price field and press Enter to submit the form
-        const priceEl = document.querySelector("${priceSel}");
-        if (priceEl) {
-          priceEl.focus();
-          
-          // Dispatch Enter key events — this triggers Angular's form submission
-          const enterDown = new KeyboardEvent("keydown", {
-            key: "Enter", code: "Enter", keyCode: 13, which: 13,
-            bubbles: true, cancelable: true
-          });
-          const enterPress = new KeyboardEvent("keypress", {
-            key: "Enter", code: "Enter", keyCode: 13, which: 13,
-            bubbles: true, cancelable: true
-          });
-          const enterUp = new KeyboardEvent("keyup", {
-            key: "Enter", code: "Enter", keyCode: 13, which: 13,
-            bubbles: true, cancelable: true
-          });
-          
-          priceEl.dispatchEvent(enterDown);
-          priceEl.dispatchEvent(enterPress);
-          priceEl.dispatchEvent(enterUp);
-          
-          console.log("[NEPSE Bot] ✅ Enter key dispatched on price field to submit form.");
-        } else {
-          // Fallback: try quantity field
-          const qtyEl = document.querySelector("input[formcontrolname='quantity']");
-          if (qtyEl) {
-            qtyEl.focus();
-            qtyEl.dispatchEvent(new KeyboardEvent("keydown", {
-              key: "Enter", code: "Enter", keyCode: 13, which: 13,
-              bubbles: true, cancelable: true
-            }));
-            qtyEl.dispatchEvent(new KeyboardEvent("keypress", {
-              key: "Enter", code: "Enter", keyCode: 13, which: 13,
-              bubbles: true, cancelable: true
-            }));
-            qtyEl.dispatchEvent(new KeyboardEvent("keyup", {
-              key: "Enter", code: "Enter", keyCode: 13, which: 13,
-              bubbles: true, cancelable: true
-            }));
-            console.log("[NEPSE Bot] ✅ Enter key dispatched on quantity field to submit form.");
-          } else {
-            console.error("[NEPSE Bot] ❌ No form field found to dispatch Enter on!");
-          }
-        }
-      })();
-    `;
+    function attemptSubmit() {
+      // 1. Explicitly click the BUY/SELL button
+      const submitBtns = Array.from(document.querySelectorAll("button[type='submit']"));
+      let targetBtn = submitBtns.find(b => b.textContent.toUpperCase().includes("BUY")) || 
+                      submitBtns.find(b => b.textContent.toUpperCase().includes("SELL")) || 
+                      submitBtns[0];
+                      
+      if (targetBtn) {
+        targetBtn.disabled = false;
+        targetBtn.removeAttribute("disabled");
+        targetBtn.classList.remove("disabled");
+        
+        targetBtn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+        targetBtn.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true }));
+        targetBtn.click();
+      }
 
-    const scriptEl = document.createElement("script");
-    scriptEl.textContent = injectedCode;
-    document.body.appendChild(scriptEl);
-    scriptEl.remove();
+      // 2. Dispatch Enter on the Price Field (Fallback 1)
+      const priceEl = document.querySelector(priceSel);
+      if (priceEl) {
+        priceEl.focus();
+        priceEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true }));
+        priceEl.dispatchEvent(new KeyboardEvent("keypress", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true }));
+        priceEl.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true }));
+      }
 
-    console.log(`[NEPSE Bot] ${config.orderType.toUpperCase()} Submit via Enter key injected into main world.`);
+      // 3. Dispatch submit on Form (Fallback 2)
+      const formEl = document.querySelector("form.order__form") || (targetBtn ? targetBtn.closest("form") : null) || (priceEl ? priceEl.closest("form") : null);
+      if (formEl) {
+        formEl.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      }
+    }
+    
+    // Attempt once immediately
+    attemptSubmit();
+    
+    // And pump it a few consecutive times since Angular change detection might 
+    // be lagging slightly behind our extremely fast field injections.
+    // Pure DOM interval directly from content script (bypasses CSP issues).
+    const interval = setInterval(() => {
+      attemptSubmit();
+      maxRetries--;
+      if (maxRetries <= 0) clearInterval(interval);
+    }, 100);
+
+    console.log(`[NEPSE Bot] ${config.orderType.toUpperCase()} Submit action dispatched direct from content script.`);
   }
 
   // ─── PRECISE WAIT ──────────────────────────────────────────
@@ -242,6 +232,9 @@
     
     if (dropdownItem) {
       console.log("[NEPSE Bot] Dropdown found, clicking:", dropdownItem.textContent.trim());
+      // ngx-bootstrap typeahead needs robust click handling to prevent blur from closing it
+      dropdownItem.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+      dropdownItem.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true }));
       dropdownItem.click();
     } else {
       console.warn("[NEPSE Bot] Dropdown item not found for", config.symbol);
@@ -279,7 +272,9 @@
       throw new Error(`Form field not found: "${selector}". Open DevTools (F12) on your TMS page and find the correct selector.`);
     }
 
-    // Try using React/Angular setter if present (for framework-managed inputs)
+    el.focus();
+    
+    // Set value using native setter to bypass any framework overrides
     const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
       window.HTMLInputElement.prototype, "value"
     )?.set;
@@ -290,10 +285,13 @@
       el.value = value;
     }
 
-    // Dispatch events to notify frameworks
+    // Sequence of events to strongly convince Angular the value has changed
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: value.slice(-1), bubbles: true }));
+    el.dispatchEvent(new KeyboardEvent("keypress", { key: value.slice(-1), bubbles: true }));
     el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new KeyboardEvent("keyup", { key: value.slice(-1), bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
-    el.dispatchEvent(new Event("blur", { bubbles: true }));
+    el.blur();
   }
 
   // ─── SETUP STATE ───────────────────────────────────────────
