@@ -117,54 +117,33 @@
    */
   function clickSubmitDirect(config) {
     const priceSel = config.selPrice || "input[formcontrolname='price']";
-    let maxRetries = 10;
     
-    function attemptSubmit() {
-      // 1. Explicitly click the BUY/SELL button
-      const submitBtns = Array.from(document.querySelectorAll("button[type='submit']"));
-      let targetBtn = submitBtns.find(b => b.textContent.toUpperCase().includes("BUY")) || 
-                      submitBtns.find(b => b.textContent.toUpperCase().includes("SELL")) || 
-                      submitBtns[0];
-                      
-      if (targetBtn) {
-        targetBtn.disabled = false;
-        targetBtn.removeAttribute("disabled");
-        targetBtn.classList.remove("disabled");
-        
-        targetBtn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
-        targetBtn.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true }));
-        targetBtn.click();
-      }
-
-      // 2. Dispatch Enter on the Price Field (Fallback 1)
+    // 1. Explicitly click the BUY/SELL button
+    const submitBtns = Array.from(document.querySelectorAll("button[type='submit']"));
+    let targetBtn = submitBtns.find(b => b.textContent.toUpperCase().includes("BUY")) || 
+                    submitBtns.find(b => b.textContent.toUpperCase().includes("SELL")) || 
+                    submitBtns[0];
+                    
+    if (targetBtn) {
+      targetBtn.disabled = false;
+      targetBtn.removeAttribute("disabled");
+      targetBtn.classList.remove("disabled");
+      
+      targetBtn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+      targetBtn.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true }));
+      targetBtn.click();
+      console.log(`[NEPSE Bot] ${config.orderType.toUpperCase()} Submit button clicked.`);
+    } else {
+      // 2. Dispatch Enter on the Price Field (Fallback)
       const priceEl = document.querySelector(priceSel);
       if (priceEl) {
         priceEl.focus();
         priceEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true }));
         priceEl.dispatchEvent(new KeyboardEvent("keypress", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true }));
         priceEl.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true }));
-      }
-
-      // 3. Dispatch submit on Form (Fallback 2)
-      const formEl = document.querySelector("form.order__form") || (targetBtn ? targetBtn.closest("form") : null) || (priceEl ? priceEl.closest("form") : null);
-      if (formEl) {
-        formEl.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        console.log(`[NEPSE Bot] ${config.orderType.toUpperCase()} Submit action dispatched via Enter key on price.`);
       }
     }
-    
-    // Attempt once immediately
-    attemptSubmit();
-    
-    // And pump it a few consecutive times since Angular change detection might 
-    // be lagging slightly behind our extremely fast field injections.
-    // Pure DOM interval directly from content script (bypasses CSP issues).
-    const interval = setInterval(() => {
-      attemptSubmit();
-      maxRetries--;
-      if (maxRetries <= 0) clearInterval(interval);
-    }, 100);
-
-    console.log(`[NEPSE Bot] ${config.orderType.toUpperCase()} Submit action dispatched direct from content script.`);
   }
 
   // ─── PRECISE WAIT ──────────────────────────────────────────
